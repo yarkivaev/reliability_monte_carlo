@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Конструктор надёжности</title>
+  <link rel="stylesheet" href="/static/katex/katex.min.css">
+  <style>
+    :root {
+      --paper: #efe6d4;
+      --ink: #1b1a17;
+      --rule: #c9b89a;
+      --oxide: #9a2d16;
+      --teal: #1f5d55;
+      --card: #f7f1e4;
+      --line: #2c2a24;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); }
+    body {
+      font: 15px/1.45 "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
+      background-image:
+        linear-gradient(rgba(154, 45, 22, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(154, 45, 22, 0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    header {
+      padding: 28px 32px 12px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .eyebrow {
+      font: 700 11px/1 "Menlo", Consolas, monospace;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--oxide);
+    }
+    h1 { font-size: 34px; font-weight: 600; margin: 8px 0 0; letter-spacing: -0.03em; }
+    main {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-width: 0;
+      min-height: calc(100vh - 110px);
+    }
+    aside {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      min-width: 0;
+      padding: 20px 22px 40px;
+      border-right: 1px solid var(--rule);
+      background: color-mix(in srgb, var(--card) 88%, transparent);
+    }
+    aside input, aside select, aside textarea, aside button { width: 100%; min-width: 0; max-width: 100%; white-space: normal; }
+    section.stage {
+      min-width: 0;
+      padding: 20px 28px 40px;
+    }
+    h2 {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+      color: var(--teal);
+    }
+    label { display: grid; gap: 4px; font-size: 13px; margin: 0; }
+    input, select, textarea, button {
+      font: 13px/1.3 "Menlo", Consolas, monospace;
+      border: 1px solid var(--line);
+      background: #fffdf8;
+      color: var(--ink);
+      padding: 7px 8px;
+      border-radius: 0;
+    }
+    textarea { min-height: 56px; resize: vertical; }
+    button {
+      background: var(--ink);
+      color: var(--paper);
+      cursor: pointer;
+      padding: 9px 12px;
+    }
+    button.ghost { background: transparent; color: var(--ink); }
+    .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+    #graph {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: 480px;
+      background: #fffdf8;
+      border: 1px solid var(--ink);
+      cursor: crosshair;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .hint {
+      margin: 8px 0 0;
+      color: #536873;
+      font: 12px/1.45 "Menlo", Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+    .board { position: relative; min-width: 0; }
+    .fit {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 1;
+      max-width: calc(100% - 16px);
+      padding: 6px 8px;
+      background: #fffdf8;
+      white-space: normal;
+    }
+    .menu {
+      position: absolute;
+      display: grid;
+      gap: 4px;
+      min-width: 228px;
+      max-width: 260px;
+      padding: 8px;
+      background: #fffdf8;
+      border: 1px solid var(--ink);
+      box-shadow: 3px 3px 0 rgba(27, 26, 23, 0.12);
+      z-index: 2;
+    }
+    .menu button { padding: 6px 8px; text-align: left; }
+    .menu label { margin-bottom: 6px; }
+    .menu input, .menu select, .menu textarea { width: 100%; }
+    .menu textarea { min-height: 48px; }
+    .formula {
+      min-height: 72px;
+      margin: 18px 0;
+      padding: 16px 18px;
+      border-left: 4px solid var(--oxide);
+      background: #fffdf8;
+      overflow-x: auto;
+    }
+    #status { color: var(--oxide); min-height: 1.4em; font: 13px/1.4 "Menlo", Consolas, monospace; }
+    #stats { font: 14px/1.6 "Menlo", Consolas, monospace; }
+    #histogram, #growth { width: 100%; height: 240px; }
+    .meter {
+      height: 8px;
+      border: 1px solid var(--ink);
+      background: #fffdf8;
+    }
+    .meter > div {
+      height: 100%;
+      width: 0;
+      background: var(--teal);
+    }
+    #meter-label {
+      margin: 0;
+      color: #536873;
+      font: 12px/1.4 "Menlo", Consolas, monospace;
+    }
+    .hidden, [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Монте-Карло · надёжность</div>
+    <h1>Конструктор изделия</h1>
+  </header>
+  <main>
+    <aside>
+      <h2>Моделирование</h2>
+      <div class="row">
+        <label>испытания <input id="trials" type="number" value="10000"></label>
+        <label>зерно <input id="seed" type="number" value="7"></label>
+      </div>
+      <div class="row">
+        <label>уровень <input id="level" type="number" step="any" value="0.95"></label>
+        <label>столбцы <input id="bins" type="number" min="1" value="24"></label>
+      </div>
+      <button type="button" id="run">Оценить среднее</button>
+      <div id="meter" class="meter hidden"><div id="meter-fill"></div></div>
+      <p id="meter-label"></p>
+      <button type="button" class="ghost" id="reset">Восстановить схему задания</button>
+      <h2>Сходимость</h2>
+      <div class="row">
+        <label>начало <input id="start" type="number" min="2" value="20"></label>
+        <label>конец <input id="end" type="number" min="2" value="10000"></label>
+      </div>
+      <label>точки <input id="stops" type="number" min="1" value="16"></label>
+      <label>сетка
+        <select id="spacing">
+          <option value="geometric">геометрическая</option>
+          <option value="linear">линейная</option>
+        </select>
+      </label>
+      <label>ось X
+        <select id="x-scale">
+          <option value="log">логарифмическая</option>
+          <option value="linear">линейная</option>
+        </select>
+      </label>
+      <div class="row">
+        <label>зерно <input id="grow-seed" type="number" value="7"></label>
+        <label>уровень <input id="grow-level" type="number" step="any" value="0.95"></label>
+      </div>
+      <button type="button" id="grow">Оценить сходимость</button>
+      <button type="button" class="ghost" id="defaults">Сбросить поля эксперимента</button>
+    </aside>
+    <section class="stage">
+      <p id="status"></p>
+      <div class="board">
+        <button type="button" class="ghost fit" id="fit">Сбросить расположение</button>
+        <svg id="graph" viewBox="0 0 1000 480" role="img" aria-label="Граф изделия"></svg>
+        <div id="menu" class="menu hidden">
+          <button type="button" data-for="field" data-act="spawn">Добавить вершину</button>
+          <label data-for="node">Имя <input id="card-name"></label>
+          <label data-for="node">Закон
+            <select id="card-law">
+              <option value="exponential">экспоненциальный</option>
+              <option value="normal">нормальный</option>
+              <option value="truncated_normal">усечённый нормальный</option>
+              <option value="constant">константа</option>
+              <option value="custom">свой</option>
+            </select>
+          </label>
+          <div id="fields-exponential" data-for="node">
+            <label>интенсивность <input id="rate" type="number" step="any" value="0.02"></label>
+          </div>
+          <div id="fields-normal" data-for="node">
+            <label>центр <input id="center" type="number" step="any" value="100"></label>
+            <label>масштаб <input id="scale" type="number" step="any" value="12"></label>
+          </div>
+          <div id="fields-truncated_normal" data-for="node">
+            <label>центр <input id="t-center" type="number" step="any" value="80"></label>
+            <label>масштаб <input id="t-scale" type="number" step="any" value="10"></label>
+            <label>низ <input id="t-low" type="number" step="any" value="0"></label>
+          </div>
+          <div id="fields-constant" data-for="node">
+            <label>значение <input id="value" type="number" step="any" value="1"></label>
+          </div>
+          <div id="fields-custom" data-for="node">
+            <label>выражение <textarea id="custom-source">max(0.0, rng.gauss(90.0, 8.0))</textarea></label>
+          </div>
+          <button type="button" data-for="node" data-act="drop">Удалить</button>
+          <button type="button" data-for="node" data-act="link">Провести ребро</button>
+          <button type="button" data-for="node" data-act="source">Сделать истоком</button>
+          <button type="button" data-for="node" data-act="sink">Сделать стоком</button>
+          <button type="button" data-for="edge" data-act="cut">Удалить ребро</button>
+          <button type="button" data-for="edge" data-act="flip">Развернуть</button>
+        </div>
+      </div>
+      <p class="hint">Правый щелчок по холсту добавляет вершину. Правый щелчок по вершине открывает имя, закон, рёбра, исток и сток. Правый щелчок по ребру удаляет или разворачивает его. Перетащите вершину, чтобы сдвинуть её.</p>
+      <div class="formula" id="formula"></div>
+      <div id="stats"></div>
+      <svg id="histogram" viewBox="0 0 1000 240" role="img" aria-label="Гистограмма наработки"></svg>
+      <svg id="growth" viewBox="0 0 1000 240" role="img" aria-label="Сходимость оценки"></svg>
+    </section>
+  </main>
+  <script src="/static/katex/katex.min.js"></script>
+  <script>
+    const state = { nodes: [], edges: [], places: {}, pick: null, wire: null, spot: null, menu: false, link: false, drag: null, cursor: null, source: 1, sink: 7, shot: null, growth: null };
+
+    const $ = (id) => document.getElementById(id);
+
+    function nameOf(raw) {
+      const text = String(raw).trim();
+      if (/^-?\d+$/.test(text)) return Number(text);
+      return text;
+    }
+
+    function lawFields() {
+      const kind = $("card-law").value;
+      ["exponential", "normal", "truncated_normal", "constant", "custom"].forEach((name) => {
+        $("fields-" + name).hidden = name !== kind;
+      });
+    }
+
+    function blank() {
+      return { name: unused(), law: "exponential", rate: 0.02 };
+    }
+
+    function mark(item) {
+      if (item.law === "exponential") return `эксп ${item.rate}`;
+      if (item.law === "normal") return `N(${item.center}, ${item.scale})`;
+      if (item.law === "truncated_normal") return `tN(${item.center})`;
+      if (item.law === "constant") return `c=${item.value}`;
+      if (item.law === "custom") return "свой";
+      return item.law;
+    }
+
+    function fill(item) {
+      $("card-name").value = item.name;
+      $("card-law").value = item.law;
+      $("rate").value = item.rate ?? 0.02;
+      $("center").value = item.center ?? 100;
+      $("scale").value = item.scale ?? 12;
+      $("t-center").value = item.center ?? 80;
+      $("t-scale").value = item.scale ?? 10;
+      $("t-low").value = item.low ?? 0;
+      $("value").value = item.value ?? 1;
+      $("custom-source").value = item.source ?? "max(0.0, rng.gauss(90.0, 8.0))";
+      lawFields();
+    }
+
+    function built(name) {
+      const kind = $("card-law").value;
+      const item = { name, law: kind };
+      if (kind === "exponential") item.rate = Number($("rate").value);
+      if (kind === "normal") {
+        item.center = Number($("center").value);
+        item.scale = Number($("scale").value);
+      }
+      if (kind === "truncated_normal") {
+        item.center = Number($("t-center").value);
+        item.scale = Number($("t-scale").value);
+        item.low = Number($("t-low").value);
+      }
+      if (kind === "constant") item.value = Number($("value").value);
+      if (kind === "custom") item.source = $("custom-source").value;
+      return item;
+    }
+
+    function shift(old, next) {
+      state.edges = state.edges.map((edge) => [
+        String(edge[0]) === String(old) ? next : edge[0],
+        String(edge[1]) === String(old) ? next : edge[1]
+      ]);
+      if (state.places[String(old)]) {
+        state.places[String(next)] = state.places[String(old)];
+        delete state.places[String(old)];
+      }
+      if (String(state.source) === String(old)) state.source = next;
+      if (String(state.sink) === String(old)) state.sink = next;
+    }
+
+    function apply() {
+      if (state.pick === null) return;
+      const index = state.nodes.findIndex((item) => String(item.name) === String(state.pick));
+      if (index < 0) return;
+      const next = nameOf($("card-name").value);
+      if (next === "" || next === undefined) {
+        $("status").textContent = "у вершины нет имени";
+        $("card-name").value = state.nodes[index].name;
+        return;
+      }
+      if (String(next) !== String(state.pick) && state.nodes.some((item) => String(item.name) === String(next))) {
+        $("status").textContent = "вершина уже есть";
+        $("card-name").value = state.nodes[index].name;
+        return;
+      }
+      if (String(next) !== String(state.pick)) {
+        shift(state.pick, next);
+        state.pick = next;
+      }
+      state.nodes[index] = built(next);
+      wipe();
+      refresh();
+    }
+
+    function sync() {
+      const names = state.nodes.map((item) => item.name);
+      if (!names.some((name) => String(name) === String(state.source)) && names.length) state.source = names[0];
+      if (!names.some((name) => String(name) === String(state.sink)) && names.length) state.sink = names[names.length - 1];
+    }
+
+    function dump() {
+      return {
+        nodes: state.nodes,
+        edges: state.edges,
+        places: state.places,
+        source: state.source,
+        sink: state.sink,
+        trials: Number($("trials").value),
+        seed: Number($("seed").value),
+        level: Number($("level").value),
+        bins: spec().bins,
+        start: Number($("start").value),
+        end: Number($("end").value),
+        stops: Number($("stops").value),
+        spacing: $("spacing").value,
+        "x-scale": $("x-scale").value,
+        "grow-seed": Number($("grow-seed").value),
+        "grow-level": Number($("grow-level").value),
+        shot: state.shot,
+        growth: state.growth
+      };
+    }
+
+    function store() {
+      try {
+        localStorage.setItem("reliability.constructor", JSON.stringify(dump()));
+      } catch (error) {
+        return;
+      }
+    }
+
+    function recall() {
+      try {
+        const data = JSON.parse(localStorage.getItem("reliability.constructor"));
+        if (!data || !Array.isArray(data.nodes) || !Array.isArray(data.edges)) return null;
+        return data;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function wipe() {
+      state.shot = null;
+      state.growth = null;
+      $("stats").textContent = "";
+      $("histogram").innerHTML = "";
+      $("growth").innerHTML = "";
+    }
+
+    function spec() {
+      sync();
+      return {
+        source: state.source,
+        sink: state.sink,
+        nodes: state.nodes,
+        edges: state.edges,
+        trials: Number($("trials").value),
+        seed: Number($("seed").value),
+        level: Number($("level").value),
+        bins: (() => {
+          const asked = Number($("bins").value);
+          return Number.isFinite(asked) && asked >= 1 ? Math.round(asked) : 24;
+        })()
+      };
+    }
+
+    function crop() {
+      sync();
+      const start = Math.max(2, Math.round(Number($("start").value) || 2));
+      const end = Math.max(start, Math.round(Number($("end").value) || start));
+      const stops = Math.max(1, Math.round(Number($("stops").value) || 1));
+      return {
+        source: state.source,
+        sink: state.sink,
+        nodes: state.nodes,
+        edges: state.edges,
+        start,
+        end,
+        stops,
+        spacing: $("spacing").value,
+        seed: Number($("grow-seed").value),
+        level: Number($("grow-level").value)
+      };
+    }
+
+    function clamp(value) {
+      return Math.min(1, Math.max(0, value));
+    }
+
+    function tile() {
+      return { x: 40, y: 22 };
+    }
+
+    function zone() {
+      const pad = 16;
+      return { x: tile().x + pad, y: tile().y + pad };
+    }
+
+    function box(point) {
+      const x = 90 + point.x * 820;
+      const y = 60 + point.y * 360;
+      return { x, y };
+    }
+
+    function dock(origin, destination) {
+      const dx = destination.x - origin.x;
+      const dy = destination.y - origin.y;
+      if (dx === 0 && dy === 0) return { x: origin.x, y: origin.y };
+      const rim = tile();
+      const across = dx === 0 ? Infinity : rim.x / Math.abs(dx);
+      const down = dy === 0 ? Infinity : rim.y / Math.abs(dy);
+      const t = Math.min(across, down);
+      return { x: origin.x + t * dx, y: origin.y + t * dy };
+    }
+
+    function slide(name, x, y) {
+      const rim = zone();
+      const gap = { x: (2 * rim.x) / 820, y: (2 * rim.y) / 360 };
+      let point = { x: clamp(x), y: clamp(y) };
+      for (let pass = 0; pass < 8; pass += 1) {
+        let moved = false;
+        state.nodes.forEach((item) => {
+          if (String(item.name) === String(name)) return;
+          const other = state.places[String(item.name)];
+          if (!other) return;
+          const dx = point.x - other.x;
+          const dy = point.y - other.y;
+          if (Math.abs(dx) >= gap.x || Math.abs(dy) >= gap.y) return;
+          if (gap.x - Math.abs(dx) < gap.y - Math.abs(dy)) point.x = clamp(other.x + (dx < 0 ? -gap.x : gap.x));
+          else point.y = clamp(other.y + (dy < 0 ? -gap.y : gap.y));
+          moved = true;
+        });
+        if (!moved) break;
+      }
+      return point;
+    }
+
+    function spread() {
+      state.nodes.forEach((item) => {
+        const point = state.places[String(item.name)];
+        if (!point) return;
+        state.places[String(item.name)] = slide(item.name, point.x, point.y);
+      });
+    }
+
+    function local(event) {
+      const svg = $("graph");
+      const point = svg.createSVGPoint();
+      point.x = event.clientX;
+      point.y = event.clientY;
+      const at = point.matrixTransform(svg.getScreenCTM().inverse());
+      return { x: (at.x - 90) / 820, y: (at.y - 60) / 360, sx: at.x, sy: at.y };
+    }
+
+    function nearby(at) {
+      const half = tile();
+      return state.nodes.find((item) => {
+        const point = state.places[String(item.name)];
+        if (!point) return false;
+        const center = box(point);
+        return Math.abs(at.sx - center.x) <= half.x && Math.abs(at.sy - center.y) <= half.y;
+      });
+    }
+
+    function span(at, origin, destination) {
+      const vx = destination.x - origin.x;
+      const vy = destination.y - origin.y;
+      const length = vx * vx + vy * vy;
+      const ratio = length === 0 ? 0 : Math.max(0, Math.min(1, ((at.sx - origin.x) * vx + (at.sy - origin.y) * vy) / length));
+      return Math.hypot(at.sx - (origin.x + ratio * vx), at.sy - (origin.y + ratio * vy));
+    }
+
+    function along(at) {
+      let pick = null;
+      let gap = 10;
+      state.edges.forEach((edge) => {
+        const origin = state.places[String(edge[0])];
+        const destination = state.places[String(edge[1])];
+        if (!origin || !destination) return;
+        const reach = span(at, dock(box(origin), box(destination)), dock(box(destination), box(origin)));
+        if (reach < gap) {
+          gap = reach;
+          pick = edge;
+        }
+      });
+      return pick;
+    }
+
+    function same(left, right) {
+      return left && right && String(left[0]) === String(right[0]) && String(left[1]) === String(right[1]);
+    }
+
+    function unused() {
+      const taken = new Set(state.nodes.map((item) => String(item.name)));
+      let name = 1;
+      while (taken.has(String(name))) name += 1;
+      return name;
+    }
+
+    function keep(payload) {
+      Object.entries(payload.places || {}).forEach(([name, point]) => {
+        if (!state.places[name]) state.places[name] = point;
+      });
+      const live = new Set(state.nodes.map((item) => String(item.name)));
+      Object.keys(state.places).forEach((name) => {
+        if (!live.has(name)) delete state.places[name];
+      });
+      spread();
+    }
+
+    function join(origin, destination) {
+      if (String(origin) === String(destination)) { $("status").textContent = "петли запрещены"; return; }
+      if (state.edges.some((edge) => String(edge[0]) === String(origin) && String(edge[1]) === String(destination))) {
+        $("status").textContent = "ребро уже есть";
+        return;
+      }
+      state.edges.push([origin, destination]);
+      wipe();
+      refresh();
+    }
+
+    function cut(origin, destination) {
+      state.edges = state.edges.filter((edge) => String(edge[0]) !== String(origin) || String(edge[1]) !== String(destination));
+      state.wire = null;
+      wipe();
+      refresh();
+    }
+
+    function flip(origin, destination) {
+      if (state.edges.some((edge) => String(edge[0]) === String(destination) && String(edge[1]) === String(origin))) {
+        $("status").textContent = "обратное ребро уже есть";
+        state.menu = false;
+        drawGraph({});
+        return;
+      }
+      state.edges = state.edges.map((edge) => (String(edge[0]) === String(origin) && String(edge[1]) === String(destination) ? [destination, origin] : edge));
+      state.wire = null;
+      wipe();
+      refresh();
+    }
+
+    function drop(name) {
+      state.nodes = state.nodes.filter((item) => String(item.name) !== String(name));
+      state.edges = state.edges.filter((edge) => String(edge[0]) !== String(name) && String(edge[1]) !== String(name));
+      delete state.places[String(name)];
+      if (String(state.pick) === String(name)) {
+        state.pick = null;
+        state.link = false;
+      }
+      if (state.wire && (String(state.wire[0]) === String(name) || String(state.wire[1]) === String(name))) state.wire = null;
+      wipe();
+      refresh();
+    }
+
+    function spawn(at) {
+      const item = blank();
+      state.nodes.push(item);
+      state.places[String(item.name)] = slide(item.name, at.x, at.y);
+      state.pick = item.name;
+      state.spot = null;
+      state.menu = true;
+      fill(item);
+      wipe();
+      refresh();
+    }
+
+    function drawGraph(payload) {
+      const svg = $("graph");
+      const places = state.places;
+      const marks = state.edges.map(([origin, destination]) => {
+        const a = places[String(origin)];
+        const b = places[String(destination)];
+        if (!a || !b) return "";
+        const left = dock(box(a), box(b));
+        const right = dock(box(b), box(a));
+        const picked = same(state.wire, [origin, destination]);
+        const stroke = picked ? "#9a2d16" : "#1b1a17";
+        const width = picked ? 3.2 : 1.6;
+        return `<line x1="${left.x}" y1="${left.y}" x2="${right.x}" y2="${right.y}" stroke="${stroke}" stroke-width="${width}" marker-end="url(#arrow)"/>`;
+      }).join("");
+      let draft = "";
+      if (state.link && state.pick !== null && state.cursor) {
+        const start = places[String(state.pick)];
+        if (start) {
+          const left = dock(box(start), { x: state.cursor.sx, y: state.cursor.sy });
+          draft = `<line x1="${left.x}" y1="${left.y}" x2="${state.cursor.sx}" y2="${state.cursor.sy}" stroke="#9a2d16" stroke-dasharray="5 4"/>`;
+        }
+      }
+      const nodes = state.nodes.map((item) => {
+        const point = places[String(item.name)];
+        if (!point) return "";
+        const at = box(point);
+        const half = tile();
+        const sink = String(item.name) === String(state.sink);
+        const source = String(item.name) === String(state.source);
+        const picked = String(item.name) === String(state.pick);
+        const stroke = picked || source || sink ? "#9a2d16" : "#1b1a17";
+        const width = picked ? 3.4 : source || sink ? 2.8 : 1.4;
+        return `<g data-name="${String(item.name)}" style="cursor:grab">
+          <rect x="${at.x - half.x}" y="${at.y - half.y}" width="${2 * half.x}" height="${2 * half.y}" fill="#fffdf8" stroke="${stroke}" stroke-width="${width}"/>
+          <text x="${at.x}" y="${at.y - 2}" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="14">${item.name}</text>
+          <text x="${at.x}" y="${at.y + 14}" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="10" fill="#536873">${mark(item)}</text>
+        </g>`;
+      }).join("");
+      svg.innerHTML = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1b1a17"/></marker></defs>${marks}${draft}${nodes}`;
+      park();
+    }
+
+    function items() {
+      const kind = state.pick !== null ? "node" : state.wire ? "edge" : "field";
+      $("menu").querySelectorAll("[data-for]").forEach((node) => {
+        node.hidden = node.dataset.for !== kind;
+      });
+      if (kind === "node") lawFields();
+    }
+
+    function park() {
+      const menu = $("menu");
+      if (!state.menu || state.drag) {
+        menu.classList.add("hidden");
+        return;
+      }
+      items();
+      const svg = $("graph");
+      const across = svg.clientWidth / 1000;
+      const down = svg.clientHeight / 480;
+      let left = 0;
+      let top = 0;
+      if (state.pick !== null) {
+        const point = state.places[String(state.pick)];
+        if (!point) {
+          menu.classList.add("hidden");
+          return;
+        }
+        const at = box(point);
+        left = (at.x + 46) * across;
+        top = (at.y - 22) * down;
+      } else if (state.spot) {
+        const at = box(state.spot);
+        left = at.x * across;
+        top = at.y * down;
+      } else {
+        menu.classList.add("hidden");
+        return;
+      }
+      menu.style.left = `${left}px`;
+      menu.style.top = `${top}px`;
+      menu.classList.remove("hidden");
+      const frame = menu.offsetParent.getBoundingClientRect();
+      const width = menu.offsetWidth;
+      const height = menu.offsetHeight;
+      const pad = 8;
+      const minLeft = pad - frame.left;
+      const maxLeft = window.innerWidth - pad - width - frame.left;
+      const minTop = pad - frame.top;
+      const maxTop = window.innerHeight - pad - height - frame.top;
+      menu.style.left = `${Math.min(Math.max(left, minLeft), Math.max(minLeft, maxLeft))}px`;
+      menu.style.top = `${Math.min(Math.max(top, minTop), Math.max(minTop, maxTop))}px`;
+    }
+
+    function idle() {
+      if (!state.menu && state.pick === null && state.wire === null && !state.link) return;
+      state.menu = false;
+      state.pick = null;
+      state.wire = null;
+      state.spot = null;
+      state.link = false;
+      $("status").textContent = "";
+      drawGraph({});
+    }
+
+    function drawFormula(source) {
+      if (!window.katex || !source) { $("formula").textContent = source || ""; return; }
+      katex.render(source, $("formula"), { throwOnError: false, displayMode: true });
+    }
+
+    function drawBars(payload) {
+      const svg = $("histogram");
+      const rows = payload.bins || [];
+      if (!rows.length) { svg.innerHTML = ""; return; }
+      const peak = Math.max(...rows.map((row) => row.count), 1);
+      const start = rows[0].start;
+      const stop = rows[rows.length - 1].stop;
+      const range = Math.max(stop - start, 1e-9);
+      const left = 64;
+      const right = 960;
+      const top = 18;
+      const base = 188;
+      const span = right - left;
+      const rise = base - top;
+      const width = span / rows.length;
+      const place = (value) => left + ((value - start) / range) * span;
+      const tick = (value) => {
+        const size = Math.abs(value);
+        if (size >= 100) return value.toFixed(0);
+        if (size >= 10) return value.toFixed(1);
+        return value.toFixed(2);
+      };
+      const marks = (low, high, count) => {
+        if (low === high) return [low];
+        return Array.from({ length: count }, (_, index) => low + (high - low) * index / (count - 1));
+      };
+      const bars = rows.map((row, index) => {
+        const height = (row.count / peak) * rise;
+        const x = left + index * width;
+        return `<rect x="${x + 1}" y="${base - height}" width="${Math.max(width - 2, 1)}" height="${height}" fill="#1f5d55"/>`;
+      }).join("");
+      const rules = [
+        `<line x1="${place(payload.mean)}" y1="${top}" x2="${place(payload.mean)}" y2="${base}" stroke="#9a2d16" stroke-width="2"/>`,
+        `<line x1="${place(payload.low)}" y1="${top}" x2="${place(payload.low)}" y2="${base}" stroke="#9a2d16" stroke-dasharray="4 3"/>`,
+        `<line x1="${place(payload.high)}" y1="${top}" x2="${place(payload.high)}" y2="${base}" stroke="#9a2d16" stroke-dasharray="4 3"/>`
+      ].join("");
+      const axis = `<line x1="${left}" y1="${top}" x2="${left}" y2="${base}" stroke="#1b1a17"/><line x1="${left}" y1="${base}" x2="${right}" y2="${base}" stroke="#1b1a17"/>`;
+      const across = marks(start, stop, 5).map((value) => {
+        const x = place(value);
+        return `<line x1="${x}" y1="${base}" x2="${x}" y2="${base + 6}" stroke="#1b1a17"/><text x="${x}" y="${base + 20}" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="11">${tick(value)}</text>`;
+      }).join("");
+      const up = marks(0, peak, peak >= 2 ? 5 : 2).map((value) => {
+        const y = base - (value / peak) * rise;
+        return `<line x1="${left - 6}" y1="${y}" x2="${left}" y2="${y}" stroke="#1b1a17"/><text x="${left - 10}" y="${y + 4}" text-anchor="end" font-family="Menlo,Consolas,monospace" font-size="11">${Math.round(value)}</text>`;
+      }).join("");
+      const names = `<text x="${(left + right) / 2}" y="232" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="12">ξ</text><text x="18" y="${(top + base) / 2}" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="12" transform="rotate(-90 18 ${(top + base) / 2})">n</text>`;
+      svg.innerHTML = bars + rules + axis + across + up + names;
+      const se = payload.se === undefined ? payload.error : payload.se;
+      $("stats").textContent = `μ̂ = ${payload.mean.toFixed(4)} · погрешность ${se.toFixed(4)} · интервал (${payload.low.toFixed(4)}, ${payload.high.toFixed(4)})`;
+    }
+
+    function drawPath(payload) {
+      const svg = $("growth");
+      const rows = payload.points || [];
+      if (!rows.length) { svg.innerHTML = ""; return; }
+      const scale = $("x-scale").value;
+      const left = 64;
+      const right = 960;
+      const top = 18;
+      const base = 188;
+      const span = right - left;
+      const rise = base - top;
+      const xmin = rows[0].trials;
+      const xmax = rows[rows.length - 1].trials;
+      const ymin = Math.min(...rows.map((row) => row.low));
+      const ymax = Math.max(...rows.map((row) => row.high));
+      const yrange = Math.max(ymax - ymin, 1e-9);
+      const placeX = (value) => {
+        if (scale === "log") {
+          const low = Math.log(Math.max(xmin, 2));
+          const high = Math.log(Math.max(xmax, 2));
+          return left + ((Math.log(Math.max(value, 2)) - low) / Math.max(high - low, 1e-9)) * span;
+        }
+        return left + ((value - xmin) / Math.max(xmax - xmin, 1e-9)) * span;
+      };
+      const placeY = (value) => base - ((value - ymin) / yrange) * rise;
+      const tick = (value) => {
+        const size = Math.abs(value);
+        if (size >= 100) return value.toFixed(0);
+        if (size >= 10) return value.toFixed(1);
+        return value.toFixed(2);
+      };
+      const marks = (low, high, count, kind) => {
+        if (low === high) return [low];
+        if (kind === "log" && low > 0 && high > 0) {
+          return Array.from({ length: count }, (_, index) => low * Math.pow(high / low, index / (count - 1)));
+        }
+        return Array.from({ length: count }, (_, index) => low + (high - low) * index / (count - 1));
+      };
+      const band = rows.map((row) => `${placeX(row.trials)},${placeY(row.high)}`).join(" ") + " " + [...rows].reverse().map((row) => `${placeX(row.trials)},${placeY(row.low)}`).join(" ");
+      const line = rows.map((row) => `${placeX(row.trials)},${placeY(row.mean)}`).join(" ");
+      const fill = `<polygon points="${band}" fill="#1f5d55" fill-opacity="0.2"/>`;
+      const mean = `<polyline points="${line}" fill="none" stroke="#9a2d16" stroke-width="2"/>`;
+      const dots = rows.map((row) => `<circle cx="${placeX(row.trials)}" cy="${placeY(row.mean)}" r="3" fill="#9a2d16"/>`).join("");
+      const axis = `<line x1="${left}" y1="${top}" x2="${left}" y2="${base}" stroke="#1b1a17"/><line x1="${left}" y1="${base}" x2="${right}" y2="${base}" stroke="#1b1a17"/>`;
+      const slots = rows.map((row, index) => ({ x: placeX(row.trials), n: row.trials, show: index === 0 || index === rows.length - 1 }));
+      slots.forEach((slot, index) => {
+        if (slot.show) return;
+        const prev = slots.slice(0, index).filter((item) => item.show).pop();
+        const next = slots[slots.length - 1];
+        if (slot.x - prev.x >= 40 && next.x - slot.x >= 40) slot.show = true;
+      });
+      const across = slots.map((slot, index) => {
+        const mark = `<line x1="${slot.x}" y1="${base}" x2="${slot.x}" y2="${base + 6}" stroke="#1b1a17"/>`;
+        if (!slot.show) return mark;
+        const anchor = index === 0 ? "start" : index === slots.length - 1 ? "end" : "middle";
+        return `${mark}<text x="${slot.x}" y="${base + 20}" text-anchor="${anchor}" font-family="Menlo,Consolas,monospace" font-size="10">${slot.n}</text>`;
+      }).join("");
+      const up = marks(ymin, ymax, 5, "linear").map((value) => {
+        const y = placeY(value);
+        return `<line x1="${left - 6}" y1="${y}" x2="${left}" y2="${y}" stroke="#1b1a17"/><text x="${left - 10}" y="${y + 4}" text-anchor="end" font-family="Menlo,Consolas,monospace" font-size="11">${tick(value)}</text>`;
+      }).join("");
+      const names = `<text x="${(left + right) / 2}" y="232" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="12">N</text><text x="18" y="${(top + base) / 2}" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="12" transform="rotate(-90 18 ${(top + base) / 2})">μ̂</text>`;
+      svg.innerHTML = fill + mean + dots + axis + across + up + names;
+    }
+
+    async function post(path, body) {
+      const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const payload = await reply.json();
+      if (!reply.ok || (payload.error && payload.mean === undefined)) throw new Error(payload.error || reply.statusText);
+      return payload;
+    }
+
+    function show(done, total) {
+      $("meter").classList.remove("hidden");
+      $("meter-fill").style.width = `${total ? (100 * done) / total : 0}%`;
+      $("meter-label").textContent = `${done} / ${total}`;
+    }
+
+    async function pump(path, body) {
+      const reply = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!reply.ok) {
+        const payload = await reply.json();
+        throw new Error(payload.error || reply.statusText);
+      }
+      const reader = reply.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let last = null;
+      while (true) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        lines.forEach((line) => {
+          if (!line) return;
+          const row = JSON.parse(line);
+          if (row.total) show(row.done, row.total);
+          if (row.mean !== undefined || row.points !== undefined) last = row;
+        });
+      }
+      if (buf) {
+        const row = JSON.parse(buf);
+        if (row.total) show(row.done, row.total);
+        if (row.mean !== undefined || row.points !== undefined) last = row;
+      }
+      if (!last) throw new Error("пустой поток Монте-Карло");
+      return last;
+    }
+
+    async function refresh() {
+      $("status").textContent = "";
+      try {
+        const payload = await post("/layout", spec());
+        keep(payload);
+        drawGraph(payload);
+        drawFormula(payload.latex);
+      } catch (error) {
+        $("status").textContent = error.message;
+        drawGraph({});
+        $("formula").textContent = "";
+      }
+      store();
+    }
+
+    function fillForm(figure) {
+      $("trials").value = figure.trials;
+      $("seed").value = figure.seed;
+      $("level").value = figure.level;
+      $("bins").value = figure.bins ?? 24;
+      $("start").value = figure.start ?? 20;
+      $("end").value = figure.end ?? figure.trials ?? 10000;
+      $("stops").value = figure.stops ?? 16;
+      $("spacing").value = figure.spacing ?? "geometric";
+      $("x-scale").value = figure["x-scale"] ?? "log";
+      $("grow-seed").value = figure["grow-seed"] ?? figure.seed ?? 7;
+      $("grow-level").value = figure["grow-level"] ?? figure.level ?? 0.95;
+    }
+
+    function adopt(figure) {
+      state.nodes = figure.nodes;
+      state.edges = figure.edges.map((edge) => [edge[0], edge[1]]);
+      state.places = {};
+      state.pick = null;
+      state.wire = null;
+      state.spot = null;
+      state.menu = false;
+      state.link = false;
+      state.shot = null;
+      state.growth = null;
+      state.source = figure.source;
+      state.sink = figure.sink;
+      fillForm(figure);
+      $("stats").textContent = "";
+      $("histogram").innerHTML = "";
+      $("growth").innerHTML = "";
+      refresh();
+    }
+
+    async function open(pack) {
+      state.nodes = pack.nodes;
+      state.edges = pack.edges.map((edge) => [edge[0], edge[1]]);
+      state.places = pack.places || {};
+      state.pick = null;
+      state.wire = null;
+      state.spot = null;
+      state.menu = false;
+      state.link = false;
+      state.shot = pack.shot || null;
+      state.growth = pack.growth || null;
+      state.source = pack.source;
+      state.sink = pack.sink;
+      fillForm(pack);
+      await refresh();
+      if (state.shot && state.shot.mean !== undefined) drawBars(state.shot);
+      if (state.growth && state.growth.points) drawPath(state.growth);
+      store();
+    }
+
+    $("run").addEventListener("click", async () => {
+      $("status").textContent = "";
+      $("run").disabled = true;
+      $("grow").disabled = true;
+      show(0, Number($("trials").value) || 1);
+      try {
+        const payload = await pump("/run", spec());
+        keep(payload);
+        drawGraph(payload);
+        drawFormula(payload.latex);
+        state.shot = payload;
+        drawBars(payload);
+        store();
+      } catch (error) {
+        $("status").textContent = error.message;
+      }
+      $("run").disabled = false;
+      $("grow").disabled = false;
+      $("meter").classList.add("hidden");
+      $("meter-label").textContent = "";
+    });
+    $("grow").addEventListener("click", async () => {
+      $("status").textContent = "";
+      $("run").disabled = true;
+      $("grow").disabled = true;
+      show(0, Number($("end").value) || 1);
+      try {
+        const payload = await pump("/grow", crop());
+        keep(payload);
+        drawGraph(payload);
+        drawFormula(payload.latex);
+        state.growth = payload;
+        drawPath(payload);
+        store();
+      } catch (error) {
+        $("status").textContent = error.message;
+      }
+      $("run").disabled = false;
+      $("grow").disabled = false;
+      $("meter").classList.add("hidden");
+      $("meter-label").textContent = "";
+    });
+    $("reset").addEventListener("click", async () => {
+      adopt(await (await fetch("/figure")).json());
+    });
+    $("defaults").addEventListener("click", async () => {
+      fillForm(await (await fetch("/figure")).json());
+      if (state.growth && state.growth.points) drawPath(state.growth);
+      store();
+    });
+    $("fit").addEventListener("click", () => {
+      state.places = {};
+      refresh();
+    });
+    $("menu").addEventListener("pointerdown", (event) => event.stopPropagation());
+    $("menu").addEventListener("contextmenu", (event) => event.preventDefault());
+    $("menu").addEventListener("change", (event) => {
+      if (!event.target.closest("[data-for=node]")) return;
+      if (event.target.id === "card-law") lawFields();
+      apply();
+    });
+    $("menu").addEventListener("click", (event) => {
+      const act = event.target.dataset.act;
+      if (!act) return;
+      if (act === "spawn") {
+        if (!state.spot) return;
+        spawn(state.spot);
+        return;
+      }
+      if (act === "cut") {
+        if (!state.wire) return;
+        state.menu = false;
+        cut(state.wire[0], state.wire[1]);
+        return;
+      }
+      if (act === "flip") {
+        if (!state.wire) return;
+        flip(state.wire[0], state.wire[1]);
+        return;
+      }
+      if (state.pick === null) return;
+      if (act === "drop") {
+        state.menu = false;
+        drop(state.pick);
+        return;
+      }
+      if (act === "link") {
+        state.link = true;
+        state.menu = false;
+        $("status").textContent = `ребро из ${state.pick}: нажмите вторую вершину`;
+        drawGraph({});
+        return;
+      }
+      if (act === "source") state.source = state.pick;
+      if (act === "sink") state.sink = state.pick;
+      state.menu = false;
+      wipe();
+      refresh();
+    });
+    window.addEventListener("resize", park);
+    document.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      if (event.target.closest("#menu") || event.target.closest("#graph")) return;
+      idle();
+    });
+
+    const board = $("graph");
+    board.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      const at = local(event);
+      const node = nearby(at);
+      const edge = along(at);
+      state.link = false;
+      state.menu = true;
+      if (node) {
+        state.wire = null;
+        state.spot = null;
+        state.pick = node.name;
+        fill(node);
+        $("status").textContent = `выбрана вершина ${node.name}`;
+        drawGraph({});
+        return;
+      }
+      if (edge) {
+        state.pick = null;
+        state.wire = edge;
+        state.spot = { x: clamp(at.x), y: clamp(at.y) };
+        $("status").textContent = `выбрано ребро ${edge[0]} → ${edge[1]}`;
+        drawGraph({});
+        return;
+      }
+      state.pick = null;
+      state.wire = null;
+      state.spot = { x: clamp(at.x), y: clamp(at.y) };
+      $("status").textContent = "";
+      drawGraph({});
+    });
+    board.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      state.menu = false;
+      state.spot = null;
+      state.wire = null;
+      const at = local(event);
+      const node = nearby(at);
+      if (!node) return;
+      board.setPointerCapture(event.pointerId);
+      state.drag = { name: node.name, x: at.sx, y: at.sy, moved: false };
+    });
+    board.addEventListener("pointermove", (event) => {
+      const at = local(event);
+      state.cursor = at;
+      if (state.drag) {
+        if (Math.hypot(at.sx - state.drag.x, at.sy - state.drag.y) > 4) state.drag.moved = true;
+        state.places[String(state.drag.name)] = slide(state.drag.name, at.x, at.y);
+      }
+      if (state.drag || state.link) drawGraph({});
+    });
+    board.addEventListener("pointerup", (event) => {
+      if (event.button !== 0) return;
+      const at = local(event);
+      const node = nearby(at);
+      if (state.drag) {
+        if (!state.drag.moved && node) {
+          if (state.link && state.pick !== null && String(state.pick) !== String(node.name)) {
+            const origin = state.pick;
+            state.pick = null;
+            state.link = false;
+            join(origin, node.name);
+          } else if (String(state.pick) === String(node.name) && !state.link) {
+            state.pick = null;
+            $("status").textContent = "";
+          } else {
+            state.pick = node.name;
+            state.link = false;
+            $("status").textContent = `выбрана вершина ${node.name}`;
+          }
+        }
+        if (state.drag.moved) store();
+        state.drag = null;
+        drawGraph({});
+        return;
+      }
+      state.pick = null;
+      state.link = false;
+      $("status").textContent = "";
+      drawGraph({});
+    });
+    board.addEventListener("pointerleave", () => {
+      state.cursor = null;
+      if (state.link) drawGraph({});
+    });
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && state.link) {
+        state.link = false;
+        $("status").textContent = state.pick === null ? "" : `выбрана вершина ${state.pick}`;
+        drawGraph({});
+        return;
+      }
+      if (event.key !== "Backspace" && event.key !== "Delete") return;
+      if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
+      if (state.wire) {
+        event.preventDefault();
+        cut(state.wire[0], state.wire[1]);
+        return;
+      }
+      if (state.pick === null) return;
+      event.preventDefault();
+      drop(state.pick);
+    });
+
+    ["trials", "seed", "level", "bins", "start", "end", "stops", "spacing", "grow-seed", "grow-level"].forEach((id) => {
+      $(id).addEventListener("change", store);
+    });
+    $("x-scale").addEventListener("change", () => {
+      if (state.growth && state.growth.points) drawPath(state.growth);
+      store();
+    });
+    window.addEventListener("pagehide", store);
+    const pack = recall();
+    if (pack) open(pack);
+    else fetch("/figure").then((reply) => reply.json()).then(adopt);
+  </script>
+</body>
+</html>
